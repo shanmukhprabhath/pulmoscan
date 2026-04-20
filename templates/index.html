@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulmoScan — Lung Disease AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0d12;
+    --surface:   #111720;
+    --surface2:  #161e2a;
+    --border:    rgba(99,179,237,0.12);
+    --border2:   rgba(99,179,237,0.22);
+    --accent:    #38bdf8;
+    --accent2:   #0ea5e9;
+    --danger:    #f87171;
+    --success:   #34d399;
+    --warn:      #fbbf24;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --muted2:    #94a3b8;
+    --scan-line: rgba(56,189,248,0.04);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--scan-line) 2px,
+      var(--scan-line) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* grid bg */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+  }
+  .header-inner {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .logo-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #e2e8f0, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--accent);
+    border: 1px solid var(--border2);
+    padding: 2px 8px; border-radius: 3px;
+    letter-spacing: 1px;
+  }
+  .model-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--muted2);
+  }
+  .model-badge .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .dot.ready   { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .dot.demo    { background: var(--warn);    box-shadow: 0 0 8px var(--warn); }
+  .dot.offline { background: var(--danger);  box-shadow: 0 0 8px var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 56px 0 40px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+  }
+  .hero-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 4vw, 52px);
+    line-height: 1.15; letter-spacing: -1px;
+    color: #f1f5f9;
+  }
+  .hero-title em { font-style: italic; color: var(--accent); }
+  .hero-sub {
+    margin-top: 16px; font-size: 15px; color: var(--muted2);
+    line-height: 1.7; font-weight: 400;
+  }
+  .hero-stats {
+    display: flex; gap: 32px; margin-top: 32px;
+  }
+  .stat-item { display: flex; flex-direction: column; gap: 3px; }
+  .stat-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px; font-weight: 500; color: var(--accent);
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* ── Upload card ── */
+  .upload-zone {
+    background: var(--surface);
+    border: 1.5px dashed var(--border2);
+    border-radius: 16px;
+    padding: 40px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative; overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.06), transparent 60%);
+    pointer-events: none;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(56,189,248,0.04);
+  }
+  .upload-icon {
+    width: 56px; height: 56px; margin: 0 auto 16px;
+    background: rgba(56,189,248,0.1);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-icon svg { width: 26px; height: 26px; stroke: var(--accent); }
+  .upload-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .upload-hint  { font-size: 12px; color: var(--muted); }
+  .upload-types {
+    display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap;
+  }
+  .type-pill {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(56,189,248,0.08); color: var(--accent);
+    border: 1px solid var(--border2);
+  }
+  #file-input { display: none; }
+
+  /* ── Analyzing state ── */
+  .analyzing {
+    display: none;
+    text-align: center; padding: 32px;
+  }
+  .scan-ring {
+    width: 64px; height: 64px; margin: 0 auto 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scan-text {
+    font-family: 'DM Mono', monospace; font-size: 13px; color: var(--accent);
+    letter-spacing: 1px;
+  }
+  .scan-steps {
+    margin-top: 12px; display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px; color: var(--muted);
+  }
+  .scan-step { transition: color .3s; }
+  .scan-step.active { color: var(--accent2); }
+  .scan-step.done   { color: var(--success); }
+
+  /* ── Results panel ── */
+  .results-section { padding: 40px 0 60px; display: none; }
+  .results-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+    align-items: start;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .result-card.span2 { grid-column: span 2; }
+
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--muted2);
+  }
+  .card-body { padding: 18px; }
+
+  /* verdict */
+  .verdict-main {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  }
+  .verdict-icon {
+    width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+  }
+  .verdict-icon.normal  { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); }
+  .verdict-icon.disease { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); }
+  .verdict-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px; line-height: 1.1;
+  }
+  .verdict-label.normal  { color: var(--success); }
+  .verdict-label.disease { color: var(--danger); }
+  .verdict-sub { font-size: 12px; color: var(--muted2); margin-top: 3px; }
+
+  /* confidence bar */
+  .conf-row { margin-bottom: 14px; }
+  .conf-labels {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted); margin-bottom: 6px;
+  }
+  .conf-val { font-family: 'DM Mono', monospace; color: var(--text); font-size: 12px; }
+  .bar-track {
+    height: 6px; background: var(--surface2);
+    border-radius: 3px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+  }
+  .bar-fill.normal  { background: linear-gradient(90deg, #059669, #34d399); }
+  .bar-fill.disease { background: linear-gradient(90deg, #dc2626, #f87171); }
+
+  /* meta rows */
+  .meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-key { color: var(--muted); }
+  .meta-val { font-family: 'DM Mono', monospace; color: var(--text); font-size: 11px; }
+  .meta-val.hi { color: var(--accent); }
+
+  /* image compare */
+  .img-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .img-panel { position: relative; }
+  .img-panel img {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 8px; display: block;
+    border: 1px solid var(--border);
+  }
+  .img-label {
+    position: absolute; bottom: 8px; left: 8px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    background: rgba(10,13,18,0.85); color: var(--accent);
+    padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--border2);
+  }
+  .img-placeholder {
+    width: 100%; aspect-ratio: 1;
+    background: var(--surface2); border-radius: 8px;
+    border: 1px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 11px;
+  }
+
+  /* history */
+  .history-section { padding-bottom: 60px; }
+  .section-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--muted);
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 12px;
+  }
+  .history-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .history-dot.normal  { background: var(--success); }
+  .history-dot.disease { background: var(--danger); }
+  .history-name { flex: 1; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-finding { color: var(--muted2); }
+  .history-conf { font-family: 'DM Mono', monospace; color: var(--accent); margin-left: auto; }
+  .history-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  /* demo banner */
+  .demo-banner {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 12px; color: var(--warn);
+    margin-bottom: 16px; display: none;
+  }
+
+  /* disclaimer */
+  .disclaimer {
+    background: rgba(248,113,113,0.06);
+    border: 1px solid rgba(248,113,113,0.15);
+    border-radius: 10px; padding: 14px 18px;
+    font-size: 11px; color: var(--muted2);
+    line-height: 1.6; margin-top: 20px;
+  }
+  .disclaimer strong { color: var(--danger); }
+
+  /* drop indicator */
+  .drop-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(56,189,248,0.06);
+    border: 3px dashed var(--accent);
+    z-index: 100; border-radius: 0;
+    pointer-events: none;
+    align-items: center; justify-content: center;
+  }
+  .drop-overlay.active { display: flex; }
+  .drop-msg {
+    font-size: 20px; color: var(--accent); font-weight: 600;
+  }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; gap: 32px; padding: 36px 0 28px; }
+    .results-grid { grid-template-columns: 1fr; }
+    .result-card.span2 { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="drop-overlay" id="drop-overlay">
+  <div class="drop-msg">Drop X-ray to analyse</div>
+</div>
+
+<header>
+  <div class="wrap">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-name">PulmoScan</span>
+        <span class="logo-tag">AI · v2.0</span>
+      </div>
+      <div class="model-badge">
+        <div class="dot" id="status-dot"></div>
+        <span id="status-text">checking…</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <h1 class="hero-title">
+        <em>Instant</em> lung<br>disease screening<br>from X-rays
+      </h1>
+      <p class="hero-sub">
+        Upload a chest X-ray. The VGG16 model runs locally on your machine,
+        returns a diagnosis probability, and highlights the regions of concern
+        with Grad-CAM — no data leaves your computer. Trained on Montgomery,
+        Shenzhen, and Darwin datasets combined.
+      </p>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-num">6,810</span>
+          <span class="stat-label">Training images</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">93%</span>
+          <span class="stat-label">Val accuracy</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">0.982</span>
+          <span class="stat-label">Val AUC</span>
+        </div>
+      </div>
+      <div class="hero-stats" style="margin-top:10px;">
+        <div class="stat-item">
+          <span class="stat-num">138</span>
+          <span class="stat-label">Montgomery</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">566</span>
+          <span class="stat-label">Shenzhen</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">6,106</span>
+          <span class="stat-label">Darwin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload zone -->
+    <div>
+      <div class="upload-zone" id="upload-zone">
+        <div id="upload-idle">
+          <div class="upload-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+          </div>
+          <div class="upload-title">Drop your X-ray here</div>
+          <div class="upload-hint">or click to browse files</div>
+          <div class="upload-types">
+            <span class="type-pill">PNG</span>
+            <span class="type-pill">JPG</span>
+            <span class="type-pill">JPEG</span>
+            <span class="type-pill">BMP</span>
+            <span class="type-pill">TIFF</span>
+          </div>
+        </div>
+        <div class="analyzing" id="analyzing">
+          <div class="scan-ring"></div>
+          <div class="scan-text">ANALYSING SCAN</div>
+          <div class="scan-steps">
+            <div class="scan-step" id="step1">▸ preprocessing image…</div>
+            <div class="scan-step" id="step2">▸ running VGG16 inference…</div>
+            <div class="scan-step" id="step3">▸ generating Grad-CAM…</div>
+            <div class="scan-step" id="step4">▸ compiling results…</div>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.bmp,.tiff,.tif">
+
+      <div class="disclaimer">
+        <strong>⚠ Research use only.</strong> This tool is not a certified medical device.
+        Results must not be used for clinical diagnosis. Always consult a qualified radiologist.
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="results-section" id="results-section">
+    <div class="demo-banner" id="demo-banner">
+      ⚡ Demo mode — model not found. Copy best_model.keras into lung_web/model/ to enable real inference.
+      Results shown are illustrative only.
+    </div>
+
+    <div class="results-grid">
+
+      <!-- Verdict card -->
+      <div class="result-card">
+        <div class="card-header">
+          <span class="card-title">Diagnosis</span>
+          <span id="result-timestamp" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+        </div>
+        <div class="card-body">
+          <div class="verdict-main">
+            <div class="verdict-icon" id="verdict-icon"></div>
+            <div>
+              <div class="verdict-label" id="verdict-label"></div>
+              <div class="verdict-sub" id="verdict-sub"></div>
+            </div>
+          </div>
+
+          <div class="conf-row">
+            <div class="conf-labels">
+              <span>Confidence</span>
+              <span class="conf-val" id="conf-val"></span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" id="bar-fill"></div>
+            </div>
+          </div>
+
+          <div class="meta-row">
+            <span class="meta-key">Raw probability</span>
+            <span class="meta-val hi" id="meta-prob"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Threshold</span>
+            <span class="meta-val">0.5000</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Inference time</span>
+            <span class="meta-val" id="meta-time"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">File</span>
+            <span class="meta-val" id="meta-file" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Images card (span 2) -->
+      <div class="result-card span2">
+        <div class="card-header">
+          <span class="card-title">Scan viewer</span>
+          <span style="font-size:10px;color:var(--muted)">Original · Grad-CAM overlay</span>
+        </div>
+        <div class="card-body">
+          <div class="img-compare">
+            <div class="img-panel">
+              <img id="orig-img" src="" alt="Original X-ray">
+              <span class="img-label">ORIGINAL</span>
+            </div>
+            <div class="img-panel" id="cam-panel">
+              <div class="img-placeholder" id="cam-placeholder">Grad-CAM generating…</div>
+              <img id="cam-img" src="" alt="Grad-CAM" style="display:none">
+              <span class="img-label" style="display:none" id="cam-label">GRAD-CAM</span>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">
+            Grad-CAM highlights (red/yellow) indicate regions the model weighted most heavily.
+            These often correspond to areas of consolidation, opacity, or structural abnormality.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="history-section" id="history-section" style="display:none">
+    <div class="section-title">Recent scans</div>
+    <div class="history-list" id="history-list"></div>
+  </section>
+
+</main>
+
+<script>
+const uploadZone  = document.getElementById('upload-zone');
+const fileInput   = document.getElementById('file-input');
+const uploadIdle  = document.getElementById('upload-idle');
+const analyzingEl = document.getElementById('analyzing');
+const resultsEl   = document.getElementById('results-section');
+const historyEl   = document.getElementById('history-section');
+
+// ── model status ──────────────────────────────────────────────────────────
+fetch('/model-status').then(r=>r.json()).then(d=>{
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  if (d.ready) {
+    dot.className = 'dot ready'; text.textContent = 'model loaded';
+  } else if (!d.ml_available) {
+    dot.className = 'dot offline'; text.textContent = 'tensorflow not installed';
+  } else {
+    dot.className = 'dot demo'; text.textContent = 'demo mode (no model)';
+  }
+});
+
+// ── upload interactions ───────────────────────────────────────────────────
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) runPrediction(e.target.files[0]);
+});
+
+// drag and drop
+['dragenter','dragover'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    e.preventDefault();
+    document.getElementById('drop-overlay').classList.add('active');
+    uploadZone.classList.add('drag-over');
+  });
+});
+['dragleave','drop'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    document.getElementById('drop-overlay').classList.remove('active');
+    uploadZone.classList.remove('drag-over');
+  });
+});
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) runPrediction(file);
+});
+
+// ── step animation ────────────────────────────────────────────────────────
+function animateSteps() {
+  const steps = ['step1','step2','step3','step4'];
+  steps.forEach(id => {
+    document.getElementById(id).className = 'scan-step';
+  });
+  steps.forEach((id, i) => {
+    setTimeout(() => {
+      if (i > 0) document.getElementById(steps[i-1]).className = 'scan-step done';
+      document.getElementById(id).className = 'scan-step active';
+    }, i * 800);
+  });
+}
+
+// ── prediction ────────────────────────────────────────────────────────────
+async function runPrediction(file) {
+  uploadIdle.style.display = 'none';
+  analyzingEl.style.display = 'block';
+  resultsEl.style.display = 'none';
+  animateSteps();
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res  = await fetch('/predict', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (data.error) {
+      alert(data.error);
+      resetUpload(); return;
+    }
+
+    // Small delay so steps animation can complete
+    await new Promise(r => setTimeout(r, 800));
+    showResults(data);
+    loadHistory();
+  } catch(e) {
+    alert('Server error. Make sure app.py is running.');
+    resetUpload();
+  }
+}
+
+function resetUpload() {
+  uploadIdle.style.display = 'block';
+  analyzingEl.style.display = 'none';
+}
+
+// ── display results ───────────────────────────────────────────────────────
+function showResults(d) {
+  analyzingEl.style.display = 'none';
+  uploadIdle.style.display  = 'block';
+  resultsEl.style.display   = 'block';
+
+  const isDisease = d.label === 1;
+
+  // Demo banner
+  document.getElementById('demo-banner').style.display = d.demo_mode ? 'block' : 'none';
+
+  // Verdict
+  document.getElementById('verdict-icon').className = `verdict-icon ${isDisease ? 'disease' : 'normal'}`;
+  document.getElementById('verdict-icon').textContent = isDisease ? '⚠' : '✓';
+  document.getElementById('verdict-label').className = `verdict-label ${isDisease ? 'disease' : 'normal'}`;
+  document.getElementById('verdict-label').textContent = isDisease ? 'Abnormal' : 'Normal';
+  document.getElementById('verdict-sub').textContent   = d.finding;
+  document.getElementById('result-timestamp').textContent = d.timestamp;
+
+  // Confidence bar
+  document.getElementById('conf-val').textContent = d.confidence + '%';
+  const bar = document.getElementById('bar-fill');
+  bar.className = `bar-fill ${isDisease ? 'disease' : 'normal'}`;
+  setTimeout(() => bar.style.width = d.confidence + '%', 100);
+
+  // Meta
+  document.getElementById('meta-prob').textContent = d.probability.toFixed(4);
+  document.getElementById('meta-time').textContent = d.time_ms + ' ms';
+  document.getElementById('meta-file').textContent = d.filename;
+
+  // Images
+  document.getElementById('orig-img').src = d.upload_url;
+
+  const camImg         = document.getElementById('cam-img');
+  const camPlaceholder = document.getElementById('cam-placeholder');
+  const camLabel       = document.getElementById('cam-label');
+
+  if (d.gradcam_url) {
+    camImg.src              = d.gradcam_url;
+    camImg.style.display    = 'block';
+    camLabel.style.display  = 'block';
+    camPlaceholder.style.display = 'none';
+  } else {
+    camImg.style.display    = 'none';
+    camLabel.style.display  = 'none';
+    camPlaceholder.style.display = 'flex';
+    camPlaceholder.textContent = d.demo_mode
+      ? 'Grad-CAM needs trained model'
+      : 'Grad-CAM unavailable';
+  }
+}
+
+// ── history ───────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const res  = await fetch('/history');
+  const data = await res.json();
+  if (!data.length) return;
+
+  historyEl.style.display = 'block';
+  const list = document.getElementById('history-list');
+  list.innerHTML = data.slice(0, 8).map(d => `
+    <div class="history-item">
+      <div class="history-dot ${d.label === 1 ? 'disease' : 'normal'}"></div>
+      <div class="history-name">${escHtml(d.filename)}</div>
+      <div class="history-finding">${escHtml(d.finding)}</div>
+      <div class="history-conf">${d.confidence}%</div>
+      <div class="history-time">${d.timestamp.split(' ')[1]}</div>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
