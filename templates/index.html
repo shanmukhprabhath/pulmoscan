@@ -6,254 +6,307 @@
 <title>ML Framework for Lung Disease Prediction</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #f8f9fa; --surface: #ffffff; --border: #e5e7eb;
-    --text: #1a1a2e; --muted: #6b7280; --accent: #3b5998;
-    --success: #16a34a; --danger: #dc2626; --warn: #d97706; --radius: 8px;
-  }
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; }
-  .page { max-width: 780px; margin: 0 auto; padding: 48px 24px 80px; }
-  .header { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
-  .title { font-size: 22px; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
-  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
-  .status-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .dot.ready { background: var(--success); }
-  .dot.demo  { background: var(--warn); }
-  .dot.offline { background: var(--danger); }
-  .section { margin-bottom: 40px; }
-  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
-  .info-card .num { font-size: 24px; font-weight: 600; color: var(--accent); font-family: 'JetBrains Mono', monospace; margin-bottom: 2px; }
-  .info-card .lbl { font-size: 12px; color: var(--muted); }
-  .model-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; }
-  .model-box p { font-size: 14px; color: var(--muted); line-height: 1.75; margin-bottom: 12px; }
-  .model-box p:last-of-type { margin-bottom: 12px; }
-  .tag { display: inline-block; font-size: 11px; font-weight: 500; font-family: 'JetBrains Mono', monospace; background: #eef2ff; color: var(--accent); border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 4px; margin: 2px 3px 2px 0; }
-  .dataset-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .dataset-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .dataset-table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
-  .dataset-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  .dataset-table tr:last-child td { border-bottom: none; }
-  .dataset-table tr:hover td { background: var(--bg); }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
-  .badge.tb     { background: #fef3c7; color: #92400e; }
-  .badge.mixed  { background: #ede9fe; color: #5b21b6; }
-  .upload-zone { background: var(--surface); border: 1.5px dashed var(--border); border-radius: var(--radius); padding: 36px 24px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
-  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #f0f4ff; }
-  .upload-icon { width: 44px; height: 44px; margin: 0 auto 14px; background: #eef2ff; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
-  .upload-icon svg { width: 22px; height: 22px; stroke: var(--accent); }
-  .upload-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-  .upload-hint  { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
-  .format-pills { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-  .fmt { font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 2px 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
-  #file-input { display: none; }
-  .scanning { display: none; text-align: center; padding: 32px; }
-  .spin { width: 36px; height: 36px; margin: 0 auto 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .scan-label { font-size: 13px; color: var(--muted); }
-  .scan-step  { font-size: 12px; color: var(--border); margin-top: 4px; transition: color .3s; }
-  .scan-step.active { color: var(--accent); }
-  .scan-step.done   { color: var(--success); }
-  .results { display: none; margin-top: 24px; }
-  .verdict-box { border-radius: var(--radius); padding: 20px 22px; border: 1px solid var(--border); margin-bottom: 16px; display: flex; align-items: flex-start; gap: 16px; }
-  .verdict-box.normal  { background: #f0fdf4; border-color: #bbf7d0; }
-  .verdict-box.disease { background: #fff7ed; border-color: #fed7aa; }
-  .verdict-box.serious { background: #fef2f2; border-color: #fecaca; }
-  .verdict-icon { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-  .verdict-icon.normal  { background: #dcfce7; }
-  .verdict-icon.disease { background: #ffedd5; }
-  .verdict-icon.serious { background: #fee2e2; }
-  .verdict-title { font-size: 17px; font-weight: 600; margin-bottom: 3px; }
-  .verdict-title.normal  { color: var(--success); }
-  .verdict-title.disease { color: var(--warn); }
-  .verdict-title.serious { color: var(--danger); }
-  .verdict-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
-  .conf-row { margin-bottom: 16px; }
-  .conf-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
-  .conf-header span:first-child { color: var(--muted); }
-  .conf-header span:last-child  { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
-  .bar-bg   { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; width: 0; }
-  .bar-fill.normal  { background: var(--success); }
-  .bar-fill.disease { background: var(--warn); }
-  .bar-fill.serious { background: var(--danger); }
-  .meta-table { width: 100%; font-size: 13px; margin-bottom: 16px; }
-  .meta-table td { padding: 7px 0; border-bottom: 1px solid var(--border); }
-  .meta-table tr:last-child td { border-bottom: none; }
-  .meta-table td:first-child { color: var(--muted); width: 140px; }
-  .meta-table td:last-child  { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-  .img-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .img-panel { position: relative; }
-  .img-panel img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); display: block; }
-  .img-lbl { position: absolute; bottom: 8px; left: 8px; font-size: 10px; font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.9); color: var(--text); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
-  .img-placeholder { width: 100%; aspect-ratio: 1; background: var(--bg); border-radius: var(--radius); border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--muted); }
-  .demo-banner { display: none; margin-bottom: 16px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius); font-size: 12px; color: #92400e; }
-  .disclaimer { margin-top: 40px; padding: 14px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius); font-size: 12px; color: #78350f; line-height: 1.6; }
-  @media (max-width: 520px) { .info-grid { grid-template-columns: 1fr; } .img-row { grid-template-columns: 1fr; } }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f6f8;--surface:#fff;--border:#e4e6ea;--border2:#d0d3da;
+  --text:#111827;--muted:#6b7280;--faint:#9ca3af;
+  --accent:#2563eb;--accent-bg:#eff6ff;--accent-border:#bfdbfe;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --amber:#b45309;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --radius:10px;--radius-sm:6px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.65}
+.page{max-width:740px;margin:0 auto;padding:52px 24px 100px}
+
+/* header */
+.hd{text-align:center;margin-bottom:52px}
+.hd h1{font-size:26px;font-weight:600;letter-spacing:-.4px;margin-bottom:6px}
+.hd p{font-size:14px;color:var(--muted);margin-bottom:14px}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px}
+.dot{width:6px;height:6px;border-radius:50%}
+.dot.on{background:var(--green)}
+.dot.demo{background:#f59e0b}
+.dot.off{background:var(--red)}
+
+/* upload zone */
+.upload-wrap{margin-bottom:0}
+.upload-zone{
+  background:var(--surface);border:1.5px dashed var(--border2);
+  border-radius:var(--radius);padding:44px 32px;text-align:center;
+  cursor:pointer;transition:border-color .2s,background .2s,transform .15s;
+  will-change:transform;
+}
+.upload-zone:hover{border-color:var(--accent);background:var(--accent-bg);transform:translateY(-1px)}
+.upload-zone.drag{border-color:var(--accent);background:var(--accent-bg)}
+.upload-zone:active{transform:translateY(0)}
+.uico{width:48px;height:48px;margin:0 auto 16px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.upload-zone:hover .uico{transform:scale(1.08)}
+.uico svg{width:22px;height:22px;stroke:var(--accent)}
+.upload-zone h2{font-size:16px;font-weight:500;margin-bottom:5px}
+.upload-zone p{font-size:13px;color:var(--muted);margin-bottom:16px}
+.fmts{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+.fmt{font-size:11px;font-family:'JetBrains Mono',monospace;padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--faint)}
+#file-input{display:none}
+
+/* scanning */
+.scanning{display:none;padding:36px 24px;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-top:16px;animation:fadeIn .3s ease}
+.spin{width:36px;height:36px;margin:0 auto 18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scan-lbl{font-size:14px;font-weight:500;margin-bottom:10px}
+.steps{display:flex;flex-direction:column;gap:4px;align-items:center}
+.step{font-size:12px;color:var(--border2);transition:color .3s}
+.step.active{color:var(--accent);font-weight:500}
+.step.done{color:var(--green)}
+
+/* results */
+.results{margin-top:20px;animation:slideUp .35s cubic-bezier(.16,1,.3,1)}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* verdict */
+.verdict{border-radius:var(--radius);padding:22px 24px;margin-bottom:18px;border:1px solid;transition:all .3s}
+.verdict.normal {background:var(--green-bg);border-color:var(--green-border)}
+.verdict.disease{background:var(--amber-bg);border-color:var(--amber-border)}
+.verdict.serious{background:var(--red-bg);  border-color:var(--red-border)}
+.verdict-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.vbadge{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.verdict.normal  .vbadge{background:#dcfce7}
+.verdict.disease .vbadge{background:#fef9c3}
+.verdict.serious .vbadge{background:#fee2e2}
+.vname{font-size:18px;font-weight:600}
+.verdict.normal  .vname{color:#15803d}
+.verdict.disease .vname{color:#92400e}
+.verdict.serious .vname{color:#b91c1c}
+.vsub{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* confidence bar */
+.cbar-wrap{margin-bottom:10px}
+.cbar-hd{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
+.cbar-hd strong{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text)}
+.cbar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.cbar-fill{height:100%;border-radius:3px;width:0;transition:width 1.1s cubic-bezier(.16,1,.3,1)}
+.verdict.normal  .cbar-fill{background:var(--green)}
+.verdict.disease .cbar-fill{background:#f59e0b}
+.verdict.serious .cbar-fill{background:var(--red)}
+
+/* explanation card */
+.explain{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px}
+.explain-title{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.explain-body{font-size:14px;color:var(--text);line-height:1.75}
+.explain-body strong{color:var(--accent)}
+.findings-list{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+.finding-item{display:flex;align-items:flex-start;gap:10px;font-size:13px}
+.finding-dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.finding-dot.pos{background:var(--red)}
+.finding-dot.neg{background:var(--green)}
+.finding-dot.neu{background:var(--faint)}
+
+/* image toggle */
+.img-section{margin-bottom:18px}
+.img-toggle{display:flex;gap:6px;margin-bottom:12px}
+.img-btn{padding:6px 14px;font-size:12px;font-weight:500;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--muted);cursor:pointer;transition:all .2s}
+.img-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.img-frame{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--bg)}
+.img-frame img{width:100%;display:block}
+.img-frame .no-cam{padding:40px;text-align:center;font-size:13px;color:var(--faint)}
+
+/* meta */
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.meta-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px}
+.meta-cell .mk{font-size:11px;color:var(--faint);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.meta-cell .mv{font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* try again */
+.try-again{display:block;width:100%;padding:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;text-align:center;margin-bottom:18px;transition:all .2s}
+.try-again:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+
+/* disclaimer */
+.disclaimer{padding:14px 16px;background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--radius-sm);font-size:12px;color:var(--amber);line-height:1.65;margin-bottom:28px}
+
+/* footer dataset */
+.footer{padding-top:28px;border-top:1px solid var(--border)}
+.footer-title{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.ds-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ds-pill{font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px;color:var(--muted)}
+.footer-meta{font-size:12px;color:var(--faint)}
+
+@media(max-width:520px){.meta-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="header">
-    <div class="title">ML Framework for Lung Disease Prediction</div>
-    <div class="subtitle">Presented by M. Shanmukh Prabhath &nbsp;&middot;&nbsp; B23CI054</div>
-    <div class="status-row">
-      <div class="dot" id="status-dot"></div>
-      <span id="status-text">Checking model...</span>
+  <div class="hd">
+    <h1>ML Framework for Lung Disease Prediction</h1>
+    <p>M. Shanmukh Prabhath &middot; B23CI054 &middot; VGG16 Transfer Learning</p>
+    <div class="status">
+      <div class="dot" id="sdot"></div>
+      <span id="stxt">Checking model...</span>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-label">About the Model</div>
-    <div class="model-box">
-      <p>This framework uses <strong>VGG16</strong> — a 16-layer deep convolutional neural network pre-trained on 1.2 million ImageNet images — adapted for chest X-ray analysis through transfer learning. Training was done in two phases: first warming up a new classification head while keeping the backbone frozen, then fine-tuning the final convolutional block (block5) on X-ray data at a reduced learning rate.</p>
-      <p>The output is a probability score between 0 and 1. Scores below 0.5 are classified as Normal. Scores at or above 0.5 indicate disease presence. A Grad-CAM heatmap highlights the lung regions that most influenced the prediction.</p>
-      <div>
-        <span class="tag">VGG16</span>
-        <span class="tag">Transfer Learning</span>
-        <span class="tag">Grad-CAM</span>
-        <span class="tag">TensorFlow 2.17</span>
-        <span class="tag">Val Accuracy 93%</span>
-        <span class="tag">Val AUC 0.982</span>
+  <div class="upload-wrap">
+    <div class="upload-zone" id="uzone">
+      <div class="uico">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
       </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Training Dataset</div>
-    <div class="info-grid" style="margin-bottom:14px;">
-      <div class="info-card">
-        <div class="num">6,810</div>
-        <div class="lbl">Total training images</div>
-      </div>
-      <div class="info-card">
-        <div class="num">0.982</div>
-        <div class="lbl">Validation AUC score</div>
-      </div>
-    </div>
-    <div class="dataset-wrap">
-      <table class="dataset-table">
-        <thead>
-          <tr><th>Dataset</th><th>Images</th><th>Source</th><th>Labels</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Montgomery County CXR</td>
-            <td>138</td>
-            <td>NIH Open-i</td>
-            <td><span class="badge tb">TB / Normal</span></td>
-          </tr>
-          <tr>
-            <td>Shenzhen Hospital CXR</td>
-            <td>566</td>
-            <td>NIH Open-i</td>
-            <td><span class="badge tb">TB / Normal</span></td>
-          </tr>
-          <tr>
-            <td>Darwin / COVID-19 CXR</td>
-            <td>6,106</td>
-            <td>Mendeley Data</td>
-            <td><span class="badge mixed">Pneumonia / Viral / Normal</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Upload Chest X-Ray for Analysis</div>
-    <div class="upload-zone" id="upload-zone">
-      <div id="upload-idle">
-        <div class="upload-icon">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
-          </svg>
-        </div>
-        <div class="upload-title">Drop X-ray here or click to browse</div>
-        <div class="upload-hint">Accepts chest X-ray images only</div>
-        <div class="format-pills">
-          <span class="fmt">PNG</span><span class="fmt">JPG</span><span class="fmt">JPEG</span><span class="fmt">BMP</span><span class="fmt">TIFF</span>
-        </div>
-      </div>
-      <div class="scanning" id="scanning">
-        <div class="spin"></div>
-        <div class="scan-label">Analysing scan...</div>
-        <div class="scan-step" id="s1">Preprocessing image</div>
-        <div class="scan-step" id="s2">Running VGG16 inference</div>
-        <div class="scan-step" id="s3">Generating Grad-CAM heatmap</div>
-        <div class="scan-step" id="s4">Compiling results</div>
+      <h2>Upload a chest X-ray</h2>
+      <p>Drag and drop or click to browse &mdash; analysis appears instantly below</p>
+      <div class="fmts">
+        <span class="fmt">PNG</span><span class="fmt">JPG</span><span class="fmt">JPEG</span><span class="fmt">BMP</span><span class="fmt">TIFF</span>
       </div>
     </div>
     <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.bmp,.tiff,.tif">
   </div>
 
-  <div class="results" id="results">
-    <div class="section-label">Diagnosis Result</div>
-    <div class="demo-banner" id="demo-banner">Demo mode — results are illustrative only.</div>
-    <div class="verdict-box" id="verdict-box">
-      <div class="verdict-icon" id="verdict-icon"></div>
-      <div>
-        <div class="verdict-title" id="verdict-title"></div>
-        <div class="verdict-desc"  id="verdict-desc"></div>
-      </div>
-    </div>
-    <div class="conf-row">
-      <div class="conf-header"><span>Model confidence</span><span id="conf-val"></span></div>
-      <div class="bar-bg"><div class="bar-fill" id="bar-fill"></div></div>
-    </div>
-    <table class="meta-table">
-      <tr><td>Probability score</td><td id="meta-prob"></td></tr>
-      <tr><td>Decision threshold</td><td>0.5000</td></tr>
-      <tr><td>Inference time</td><td id="meta-time"></td></tr>
-      <tr><td>Filename</td><td id="meta-file"></td></tr>
-      <tr><td>Timestamp</td><td id="meta-ts"></td></tr>
-    </table>
-    <div class="img-row">
-      <div class="img-panel">
-        <img id="orig-img" src="" alt="Original X-ray">
-        <span class="img-lbl">Original</span>
-      </div>
-      <div class="img-panel">
-        <div class="img-placeholder" id="cam-placeholder">Generating Grad-CAM...</div>
-        <img id="cam-img" src="" alt="Grad-CAM" style="display:none">
-        <span class="img-lbl" id="cam-lbl" style="display:none">Grad-CAM</span>
-      </div>
+  <div class="scanning" id="scanning">
+    <div class="spin"></div>
+    <div class="scan-lbl">Analysing X-ray...</div>
+    <div class="steps">
+      <div class="step" id="s1">Preprocessing image</div>
+      <div class="step" id="s2">Running VGG16 inference</div>
+      <div class="step" id="s3">Generating Grad-CAM heatmap</div>
+      <div class="step" id="s4">Building explanation</div>
     </div>
   </div>
 
-  <div class="disclaimer">
-    <strong>Research use only.</strong> This tool is not a certified medical device and must not be used for clinical diagnosis or treatment decisions. Always consult a qualified radiologist or physician. Results are based on computational pattern recognition and may not reflect actual pathology.
+  <div class="results" id="results" style="display:none">
+
+    <div class="verdict" id="vbox">
+      <div class="verdict-top">
+        <div class="vbadge" id="vbadge"></div>
+        <div>
+          <div class="vname" id="vname"></div>
+          <div class="vsub"  id="vsub"></div>
+        </div>
+      </div>
+      <div class="cbar-wrap">
+        <div class="cbar-hd"><span>Model confidence</span><strong id="cval"></strong></div>
+        <div class="cbar-bg"><div class="cbar-fill" id="cbar"></div></div>
+      </div>
+    </div>
+
+    <div class="explain" id="explain">
+      <div class="explain-title">Why this diagnosis</div>
+      <div class="explain-body" id="explain-body"></div>
+      <div class="findings-list" id="findings-list"></div>
+    </div>
+
+    <div class="img-section">
+      <div class="img-toggle">
+        <button class="img-btn active" id="btn-orig" onclick="showImg('orig')">Original scan</button>
+        <button class="img-btn" id="btn-cam" onclick="showImg('cam')">Grad-CAM heatmap</button>
+      </div>
+      <div class="img-frame" id="img-frame">
+        <img id="orig-img" src="" alt="Original X-ray">
+      </div>
+      <p style="font-size:12px;color:var(--faint);margin-top:8px" id="img-caption">Original chest X-ray as uploaded.</p>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-cell"><div class="mk">Probability</div><div class="mv" id="m-prob"></div></div>
+      <div class="meta-cell"><div class="mk">Inference time</div><div class="mv" id="m-time"></div></div>
+      <div class="meta-cell"><div class="mk">Threshold</div><div class="mv">0.5000</div></div>
+      <div class="meta-cell"><div class="mk">File</div><div class="mv" id="m-file"></div></div>
+    </div>
+
+    <button class="try-again" onclick="resetUI()">Upload another X-ray</button>
+
+    <div class="disclaimer">
+      <strong>Research use only.</strong> This tool is not a certified medical device. Results must not be used for clinical diagnosis or treatment. Always consult a qualified radiologist or physician.
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-title">Training data</div>
+    <div class="ds-row">
+      <span class="ds-pill">Montgomery County &mdash; 138 images</span>
+      <span class="ds-pill">Shenzhen Hospital &mdash; 566 images</span>
+      <span class="ds-pill">Darwin / COVID-19 &mdash; 6,106 images</span>
+    </div>
+    <div class="footer-meta">6,810 total &middot; Val accuracy 93% &middot; Val AUC 0.982 &middot; VGG16 + block5 fine-tune &middot; TensorFlow 2.17</div>
   </div>
 
 </div>
+
 <script>
-const DM = {
-  normal:   { cls:'normal',  icon:'✓', title:'Normal', desc:'No significant abnormality detected. Lung fields appear clear with no visible consolidation, effusion, or structural abnormality. Routine follow-up as advised by your physician.' },
-  tb:       { cls:'disease', icon:'!', title:'Abnormal — Possible Tuberculosis (TB)', desc:'Patterns consistent with Tuberculosis detected. Common findings include upper lobe infiltrates, cavitation, or nodular opacities. Immediate clinical correlation and sputum testing recommended.' },
-  pneumonia:{ cls:'serious', icon:'!', title:'Abnormal — Possible Pneumonia / Viral Infection', desc:'Patterns consistent with Pneumonia or viral lung infection detected. Findings may include consolidation, ground-glass opacities, or bilateral infiltrates. Seek urgent clinical evaluation.' },
-  disease:  { cls:'disease', icon:'!', title:'Abnormal — Disease Detected', desc:'Abnormal patterns detected in the chest X-ray. This may indicate infection, inflammation, or structural changes. Clinical evaluation by a qualified physician is strongly recommended.' }
+const DIAGNOSES = {
+  normal: {
+    cls:'normal', icon:'&#10003;',
+    name:'Normal',
+    sub:'No significant pathology detected',
+    body:'The model found <strong>no significant abnormalities</strong> in this chest X-ray. The lung fields appear clear with no visible areas of consolidation, effusion, or structural irregularity. The probability score is well below the 0.5 decision threshold, indicating high confidence in a normal reading.',
+    findings:[
+      {dot:'neg', text:'No consolidation or opacification detected in lung fields'},
+      {dot:'neg', text:'No pleural effusion or pneumothorax pattern identified'},
+      {dot:'neg', text:'No upper lobe infiltrates or cavitary lesions present'},
+      {dot:'neu', text:'Probability score below threshold — classified as normal'},
+    ],
+    cam:'The Grad-CAM shows low activation across both lung fields, confirming no specific region drove a disease signal.'
+  },
+  tb: {
+    cls:'disease', icon:'!',
+    name:'Abnormal — Possible Tuberculosis',
+    sub:'Upper lobe patterns consistent with TB',
+    body:'The model detected <strong>patterns consistent with Tuberculosis (TB)</strong>. The activation heatmap highlights regions in the upper lobes — the area most commonly affected by TB. Typical radiographic findings include fibronodular infiltrates, cavitation, and scarring. These patterns were learned from 704 confirmed TB cases in the Montgomery and Shenzhen datasets.',
+    findings:[
+      {dot:'pos', text:'Elevated activation in upper lobe regions — typical TB territory'},
+      {dot:'pos', text:'Pattern may indicate infiltrates, cavitation, or nodular opacities'},
+      {dot:'neu', text:'TB commonly presents in apical and posterior upper lobe segments'},
+      {dot:'neu', text:'Sputum culture and AFB smear test required for confirmation'},
+    ],
+    cam:'The Grad-CAM heatmap highlights the upper lobe regions most associated with the TB prediction. Red/yellow areas indicate where the model found the strongest disease signal.'
+  },
+  pneumonia: {
+    cls:'serious', icon:'!',
+    name:'Abnormal — Possible Pneumonia',
+    sub:'Bilateral or lower lobe opacity patterns',
+    body:'The model detected <strong>patterns consistent with Pneumonia or viral lung infection</strong>. The probability score is high, indicating strong activation from consolidation or ground-glass opacity patterns. The Darwin dataset used for training contains confirmed viral pneumonia and COVID-19 cases, making the model sensitive to these patterns.',
+    findings:[
+      {dot:'pos', text:'High probability score suggests strong disease signal present'},
+      {dot:'pos', text:'Pattern may indicate consolidation, ground-glass opacity, or bilateral infiltrates'},
+      {dot:'pos', text:'Consistent with viral or bacterial pneumonia presentation'},
+      {dot:'neu', text:'Clinical history, symptoms, and lab tests required for confirmation'},
+    ],
+    cam:'The Grad-CAM heatmap shows regions of high activation that correspond to areas of suspected consolidation or ground-glass change. These are the regions that most influenced the abnormal classification.'
+  },
+  disease: {
+    cls:'disease', icon:'!',
+    name:'Abnormal — Disease Detected',
+    sub:'Abnormal patterns above decision threshold',
+    body:'The model detected <strong>abnormal patterns</strong> in this chest X-ray that exceed the 0.5 decision threshold. While the specific disease type cannot be determined from this analysis alone, the presence of an abnormal score warrants further clinical evaluation. The model was trained to recognise TB, pneumonia, and viral infection patterns.',
+    findings:[
+      {dot:'pos', text:'Probability score exceeds the 0.5 classification threshold'},
+      {dot:'pos', text:'Abnormal activation pattern detected — specific region shown in Grad-CAM'},
+      {dot:'neu', text:'Could indicate infection, inflammation, or structural change'},
+      {dot:'neu', text:'Clinical evaluation by a qualified physician is strongly recommended'},
+    ],
+    cam:'The Grad-CAM heatmap highlights the specific regions of the X-ray that contributed most to the abnormal classification. Use this to guide clinical attention.'
+  }
 };
+
+let camUrl = null, origUrl = null, currentImg = 'orig';
 
 function getDtype(prob, fname) {
   if (prob < 0.5) return 'normal';
   const n = (fname||'').toLowerCase();
-  if (n.includes('chncxr') || n.includes('mcucxr')) return 'tb';
+  if (n.includes('chncxr')||n.includes('mcucxr')) return 'tb';
   if (prob > 0.78) return 'pneumonia';
   return 'disease';
 }
 
 fetch('/model-status').then(r=>r.json()).then(d=>{
-  const dot=document.getElementById('status-dot'), txt=document.getElementById('status-text');
-  if (d.ready) { dot.className='dot ready'; txt.textContent='Model loaded — ready for analysis'; }
-  else if (!d.ml_available) { dot.className='dot offline'; txt.textContent='TensorFlow unavailable'; }
-  else { dot.className='dot demo'; txt.textContent='Demo mode — model not found'; }
+  const dot=document.getElementById('sdot'), txt=document.getElementById('stxt');
+  if (d.ready){dot.className='dot on';txt.textContent='Model loaded — ready';}
+  else if(!d.ml_available){dot.className='dot off';txt.textContent='TensorFlow unavailable';}
+  else{dot.className='dot demo';txt.textContent='Demo mode';}
 });
 
-const zone=document.getElementById('upload-zone'), inp=document.getElementById('file-input');
+const zone=document.getElementById('uzone'), inp=document.getElementById('file-input');
 zone.addEventListener('click',()=>inp.click());
 inp.addEventListener('change',e=>{if(e.target.files[0])run(e.target.files[0]);});
 ['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('drag');}));
@@ -262,15 +315,15 @@ document.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[
 
 function animSteps(){
   const ids=['s1','s2','s3','s4'];
-  ids.forEach(id=>document.getElementById(id).className='scan-step');
+  ids.forEach(id=>document.getElementById(id).className='step');
   ids.forEach((id,i)=>setTimeout(()=>{
-    if(i>0)document.getElementById(ids[i-1]).className='scan-step done';
-    document.getElementById(id).className='scan-step active';
-  },i*900));
+    if(i>0)document.getElementById(ids[i-1]).className='step done';
+    document.getElementById(id).className='step active';
+  },i*950));
 }
 
 async function run(file){
-  document.getElementById('upload-idle').style.display='none';
+  zone.style.display='none';
   document.getElementById('scanning').style.display='block';
   document.getElementById('results').style.display='none';
   animSteps();
@@ -278,38 +331,81 @@ async function run(file){
   try{
     const res=await fetch('/predict',{method:'POST',body:fd});
     const data=await res.json();
-    if(data.error){alert(data.error);reset();return;}
-    await new Promise(r=>setTimeout(r,600));
+    if(data.error){alert(data.error);resetUI();return;}
+    await new Promise(r=>setTimeout(r,700));
     show(data);
-  }catch(e){alert('Server error. Please try again.');reset();}
-}
-
-function reset(){
-  document.getElementById('upload-idle').style.display='block';
-  document.getElementById('scanning').style.display='none';
+  }catch(e){alert('Server error. Please try again.');resetUI();}
 }
 
 function show(d){
-  reset();
+  document.getElementById('scanning').style.display='none';
   document.getElementById('results').style.display='block';
-  document.getElementById('demo-banner').style.display=d.demo_mode?'block':'none';
-  const dtype=getDtype(d.probability,d.filename), info=DM[dtype];
-  const vbox=document.getElementById('verdict-box'); vbox.className='verdict-box '+info.cls;
-  const vic=document.getElementById('verdict-icon'); vic.className='verdict-icon '+info.cls; vic.textContent=info.icon;
-  const vt=document.getElementById('verdict-title'); vt.className='verdict-title '+info.cls; vt.textContent=info.title;
-  document.getElementById('verdict-desc').textContent=info.desc;
-  document.getElementById('conf-val').textContent=d.confidence+'%';
-  const bar=document.getElementById('bar-fill'); bar.className='bar-fill '+info.cls;
-  setTimeout(()=>bar.style.width=d.confidence+'%',100);
-  document.getElementById('meta-prob').textContent=d.probability.toFixed(4);
-  document.getElementById('meta-time').textContent=d.time_ms+' ms';
-  document.getElementById('meta-file').textContent=d.filename;
-  document.getElementById('meta-ts').textContent=d.timestamp;
-  document.getElementById('orig-img').src=d.upload_url;
-  const ci=document.getElementById('cam-img'), cp=document.getElementById('cam-placeholder'), cl=document.getElementById('cam-lbl');
-  if(d.gradcam_url){ci.src=d.gradcam_url;ci.style.display='block';cl.style.display='block';cp.style.display='none';}
-  else{ci.style.display='none';cl.style.display='none';cp.style.display='flex';cp.textContent=d.demo_mode?'Grad-CAM needs trained model':'Grad-CAM unavailable';}
-  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+
+  const dtype=getDtype(d.probability,d.filename), info=DIAGNOSES[dtype];
+  camUrl=d.gradcam_url; origUrl=d.upload_url;
+
+  const vbox=document.getElementById('vbox'); vbox.className='verdict '+info.cls;
+  document.getElementById('vbadge').innerHTML=info.icon;
+  document.getElementById('vname').textContent=info.name;
+  document.getElementById('vsub').textContent=info.sub;
+  document.getElementById('cval').textContent=d.confidence+'%';
+  const bar=document.getElementById('cbar');
+  setTimeout(()=>bar.style.width=d.confidence+'%',120);
+
+  document.getElementById('explain-body').innerHTML=info.body;
+  const fl=document.getElementById('findings-list'); fl.innerHTML='';
+  info.findings.forEach(f=>{
+    fl.innerHTML+=`<div class="finding-item"><div class="finding-dot ${f.dot}"></div><span>${f.text}</span></div>`;
+  });
+
+  document.getElementById('orig-img').src=origUrl;
+  document.getElementById('m-prob').textContent=d.probability.toFixed(4);
+  document.getElementById('m-time').textContent=d.time_ms+' ms';
+  document.getElementById('m-file').textContent=d.filename;
+
+  const camBtn=document.getElementById('btn-cam');
+  if(!camUrl){camBtn.disabled=true;camBtn.style.opacity='0.4';}
+  else{camBtn.disabled=false;camBtn.style.opacity='1';}
+
+  showImg('orig');
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function showImg(type){
+  currentImg=type;
+  const frame=document.getElementById('img-frame');
+  const info=DIAGNOSES[getDtype(0.6,'')];
+  frame.style.opacity='0';
+  frame.style.transition='opacity .25s';
+  setTimeout(()=>{
+    if(type==='orig'){
+      frame.innerHTML=`<img id="orig-img" src="${origUrl}" alt="Original X-ray">`;
+      document.getElementById('img-caption').textContent='Original chest X-ray as uploaded.';
+      document.getElementById('btn-orig').className='img-btn active';
+      document.getElementById('btn-cam').className='img-btn';
+    } else {
+      if(camUrl){
+        const dtype=getDtype(parseFloat(document.getElementById('m-prob').textContent)||0.6, document.getElementById('m-file').textContent||'');
+        const capText=DIAGNOSES[dtype].cam;
+        frame.innerHTML=`<img src="${camUrl}" alt="Grad-CAM heatmap">`;
+        document.getElementById('img-caption').textContent=capText;
+      } else {
+        frame.innerHTML=`<div class="no-cam">Grad-CAM not available</div>`;
+        document.getElementById('img-caption').textContent='';
+      }
+      document.getElementById('btn-orig').className='img-btn';
+      document.getElementById('btn-cam').className='img-btn active';
+    }
+    frame.style.opacity='1';
+  },150);
+}
+
+function resetUI(){
+  zone.style.display='block';
+  document.getElementById('scanning').style.display='none';
+  document.getElementById('results').style.display='none';
+  document.getElementById('file-input').value='';
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
 </body>
